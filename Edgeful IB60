@@ -1,0 +1,97 @@
+using System;
+using cAlgo.API;
+using cAlgo.API.Collections;
+using cAlgo.API.Indicators;
+using cAlgo.API.Internals;
+
+namespace cAlgo.Robots;
+
+[Robot(AccessRights = AccessRights.None, AddIndicators = true, TimeZone = TimeZones.EasternStandardTime)]
+public class EDR_IB60 : Robot
+{
+   // Strategy Parameters from Playbook
+        [Parameter("Quantity (Contracts)", DefaultValue = 0.1)]
+        public double Quantity { get; set; }
+
+        [Parameter("Max IB Size %", DefaultValue = 1.5)]
+        public double MaxIBSizePct { get; set; }
+
+        private double _ibHigh;
+        private double _ibLow;
+        private double _ibRange;
+        private bool _isIBSet;
+        private bool _orderPlacedToday;
+
+        protected override void OnStart()
+        {
+            _isIBSet = false;
+            _orderPlacedToday = false;
+        }
+
+        protected override void OnBar()
+        {
+            var serverTime = Server.Time;
+
+            if (serverTime.Hour == 9 && serverTime.Minute == 30)
+            {
+                _ibHigh = Bars.HighPrices.Last(0);
+                _ibLow = Bars.LowPrices.Last(0);
+                _isIBSet = false;
+                _orderPlacedToday = false;
+            }
+
+
+            if (serverTime.Hour == 10 && serverTime.Minute == 30 && !_isIBSet)
+            {
+                for (int i = 1; i <= 10; i++)
+                {
+                    if (Bars.HighPrices.Last(i) > _ibHigh)
+                    {
+                        _ibHigh = Bars.HighPrices.Last(i);
+                    }
+                }
+
+                 for (int i = 1; i <= 10; i++)
+                {
+                    if (Bars.LowPrices.Last(i) < _ibLow)
+                    {
+                        _ibLow = Bars.LowPrices.Last(i);
+                    }
+                }    
+
+                _isIBSet = true;
+                _ibRange = _ibHigh - _ibLow;
+                
+                double ibPctOfPrice = (_ibRange / _ibHigh) * 100;
+                if (ibPctOfPrice > MaxIBSizePct)
+                {
+                    Print("IB Range too large ({0}%), skipping today.", Math.Round(ibPctOfPrice, 2));
+                    _isIBSet = false; 
+                }
+            }
+
+            if (_isIBSet && !_orderPlacedToday && Positions.Count == 0)
+            {
+                Print("IBHigh", Math.Round(_ibHigh, 2));
+                if (Bars.HighPrices.Last(0) > _ibHigh)
+                {
+                    double entryPrice = _ibHigh - (_ibRange * 0.1); // 1% Retrace 
+                    double stopLoss = _ibRange * 4.0;  // 60% Retrace 
+                    double target2 = _ibRange * 6.0;   // TP #2 
+
+                    PlaceLimitOrder(TradeType.Buy, SymbolName, Symbol.QuantityToVolumeInUnits(Quantity), entryPrice, "IB_Long", stopLoss, target2);
+                    _orderPlacedToday = true;
+                }
+                
+                else if (Bars.LowPrices.Last(0) < _ibLow)
+                {
+                    double entryPrice = _ibLow + (_ibRange * 0.1); // 1% Retrace 
+                    double stopLoss = _ibRange * 6.0;  // 60% Retrace 
+                    double target2 = (_ibRange * 5.0);   // TP #2 
+
+                    PlaceLimitOrder(TradeType.Sell, SymbolName, Symbol.QuantityToVolumeInUnits(Quantity), entryPrice, "IB_Short", stopLoss, target2);
+                    _orderPlacedToday = true;
+                }
+            }
+        }
+}
