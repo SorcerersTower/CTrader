@@ -1,0 +1,61 @@
+using System;
+using cAlgo.API;
+using cAlgo.API.Collections;
+using cAlgo.API.Indicators;
+using cAlgo.API.Internals;
+
+namespace cAlgo.Robots;
+
+[Robot(AccessRights = AccessRights.None, AddIndicators = true)]
+public class DaveyCLV1 : Robot
+{
+    [Parameter(DefaultValue = 14)]
+    public int adxPeriod { get; set; }
+
+    [Parameter(DefaultValue = 20)]
+    public int adxThreshold { get; set; }
+
+    [Parameter(DefaultValue = 65)]
+    public int lookback { get; set; }
+
+    [Parameter(DefaultValue = 450)]
+    public int profit { get; set; }
+
+    [Parameter(DefaultValue = 300)]
+    public int loss { get; set; }
+
+    private AverageDirectionalMovementIndexRating adx;
+
+    protected override void OnStart()
+    {
+        adx = Indicators.AverageDirectionalMovementIndexRating(adxPeriod);
+    }
+        
+
+    protected override void OnTick()
+    {
+        
+    }
+
+    protected override void OnBarClosed()
+    {
+        if(Positions.Count == 0)
+            if(adx.ADX.LastValue > adxThreshold)
+            {
+                double diff = Bars.ClosePrices.LastValue - Bars.ClosePrices.Last(lookback);
+                if(diff > 0)
+                {
+                    ExecuteMarketOrder(TradeType.Buy, SymbolName, Symbol.QuantityToVolumeInUnits(1), "CL Long", loss, profit);
+                }
+                else if(diff < 0)
+                {
+                        ExecuteMarketOrder(TradeType.Sell, SymbolName, Symbol.QuantityToVolumeInUnits(1), "CL Short", loss, profit);
+                }
+            }
+    }
+
+    protected override void OnStop()
+    {
+        
+    }
+}
