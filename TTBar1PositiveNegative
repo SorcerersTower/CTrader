@@ -1,0 +1,56 @@
+using System;
+using cAlgo.API;
+using cAlgo.API.Collections;
+using cAlgo.API.Indicators;
+using cAlgo.API.Internals;
+
+namespace cAlgo.Robots;
+
+[Robot(AccessRights = AccessRights.None, AddIndicators = true)]
+public class TT1BarPositiveNegative : Robot
+{
+        [Parameter(DefaultValue = 40)]
+    public int profit { get; set; }
+
+    [Parameter(DefaultValue = 20)]
+    public int loss { get; set; }
+
+    protected override void OnStart()
+    {
+
+    }
+
+    protected override void OnBarClosed()
+    {
+                var serverTime = Server.Time;
+            
+        if (serverTime.Hour ==14 && serverTime.Minute == 30 )
+        {
+                       
+          
+            if(Positions.Count == 0)
+            {
+                if(Bars.ClosePrices.Last(0) < Bars.OpenPrices.Last(0))
+                {
+                    PlaceStopOrder(TradeType.Sell, SymbolName, 1, Bars.LowPrices.Last(0),"Short" ,loss, profit );
+                }
+                else if(Bars.ClosePrices.Last(0) > Bars.OpenPrices.Last(0))
+                {
+                    PlaceStopOrder(TradeType.Buy, SymbolName, 1, Bars.HighPrices.Last(0),"Long" ,loss, profit );
+                }
+            }
+        }
+    }
+    
+
+    protected override void OnTick()
+    {
+
+    }
+
+
+    protected override void OnStop()
+    {
+        // Handle cBot stop here
+    }
+}
